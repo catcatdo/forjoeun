@@ -1,41 +1,31 @@
 # forjoeun
 
-아이폰에서도 쓸 수 있는 **카톡 느낌 미연시 웹 템플릿**입니다.
+아이폰에서도 쓸 수 있는 **카톡형 채팅 미연시**입니다.
 
-## 핵심 변경점
-- 카톡형 채팅 UI(좌/우 말풍선)
-- 주인공: **채은성**(한화이글스 야구선수 느낌 캐릭터)
-- 대화 선택지로 진행되는 간단한 호감도 시스템
-- 프로필 사진 클릭 시 호감도 상태/상태메시지 업데이트 느낌 연출
-- 호감도 단계별로 프로필 이미지 경로 자동 변경(폴더 준비)
+## 현재 기능
+- 주인공: **채은성**(한화이글스 느낌)
+- 카톡형 말풍선 UI
+- 호감도 기반 스테이터스 메시지 및 프로필 반응
+- 선택지 기반 스토리 진행
 - localStorage 세이브/불러오기
+- **Codex 연동 브리지(옵션)**: `ai 모드`를 켜면 `/api/reply`로 대사를 생성
 
-## 프로필 사진 폴더
-아래 폴더에 네가 사진을 넣으면 됩니다.
+## 프로필 사진
+폴더: `assets/profile/`
+- stage1~7.png 파일을 넣으면 호감도 단계별로 자동 변경
 
-- `assets/profile/stage1.png`
-- `assets/profile/stage2.png`
-- `assets/profile/stage3.png`
-- `assets/profile/stage4.png`
-- `assets/profile/stage5.png`
-- `assets/profile/stage6.png`
-- `assets/profile/stage7.png`
-
-없으면 기본 아바타 영역으로 표시되고, 배경색/상태만 동작해요.
-
-## 실행
-
+## Codex 브리지 실행법 (선택)
+1) 프로젝트 루트에서:
 ```bash
-cd /Users/mechako/forjoeun
-open index.html
+npm install  # 최초 1회
+npm run bridge
 ```
+2) 브라우저에서 `index.html` 또는 정적 서버로 실행
+3) 대화에서 `❤` 수치(혹은 상태 버튼)에서 `yes` 입력 시 AI 모드 ON
 
-## GitHub Pages 배포
-- GitHub에 `forjoeun` 레포 push
-- Settings → Pages → `main` / `root`로 배포
-- 주소: `https://catcatdo.github.io/forjoeun/`
+주의: AI 모드는 `localhost`에서 동작하는 Codex 브리지 서버가 필요합니다.
 
-원하면 다음 단계로:
-- 대화 데이터를 별도 `story.json`으로 분리
-- 호감도에 따른 분기 결말(좋음/평온/거리 두기) 3종
-- 알림/이모지/배경 효과 추가 가능
+## GitHub Pages
+GitHub Pages는 정적 호스팅이라 `/api/reply` 브리지는 동작하지 않습니다.
+그래도 스토리는 기존 규칙 기반으로 완전 동작합니다.
+페이지 배포: Settings → Pages → Deploy from branch (`main`, `root`).
