@@ -3,34 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>forjoeun Visual Novel</title>
-  <link rel="stylesheet" href="./style.css">
-  <meta name="description" content="forjoeun VN Prototype" />
+  <title>forjoeun - 채은성 대화</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <main class="app">
-    <header>
-      <h1>forjoeun</h1>
-      <p>아이폰에서도 되는 미연시(비노골적 로맨스/우정 모드)</p>
+    <header class="chat-topbar">
+      <button id="profileBtn" class="profile-btn" aria-label="채은성 프로필">
+        <img id="heroAvatar" src="" alt="채은성 프로필" />
+        <span class="online-dot" aria-hidden="true"></span>
+      </button>
+      <div class="name-wrap">
+        <div class="name">채은성</div>
+        <div id="heroStatus" class="status">상태를 불러오는 중...</div>
+      </div>
+      <button id="heartBtn" class="heart" title="호감도 보기" aria-label="호감도 보기">❤ <span id="heartText">0</span></button>
     </header>
 
-    <section id="story-area" aria-live="polite">
-      <div id="character" class="fade"></div>
-      <p id="text" class="fade"></p>
-    </section>
+    <section class="chat-frame" id="chatFrame" aria-live="polite"></section>
 
-    <section id="choices" class="choices"></section>
+    <section class="choices" id="choices"></section>
 
-    <section id="hud">
-      <button id="saveBtn" class="ghost">세이브</button>
+    <section id="controls" class="controls">
+      <button id="saveBtn" class="ghost">저장</button>
       <button id="loadBtn" class="ghost">불러오기</button>
-      <button id="resetBtn" class="ghost">처음부터</button>
+      <button id="resetBtn" class="ghost">초기화</button>
     </section>
 
     <footer>
-      <small>made by 오픈클로우 메구밍</small>
+      <small>forjoeun · 텍스트 기반 미연시 프리뷰</small>
     </footer>
   </main>
+
   <script src="./script.js"></script>
 </body>
 </html>
