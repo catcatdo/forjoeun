@@ -1,11 +1,12 @@
-const STORAGE_KEY = 'forjoeun_chat_v3';
+const STORAGE_KEY_PREFIX = 'forjoeun_state_';
+const LAST_USER_KEY = 'forjoeun_last_user';
 const SAVE_NOTES_KEY = 'forjoeun_saved_status_v3';
 const AI_ENDPOINT = '/api/reply';
 
 const AFFINITY_MAX = 140;
-const AFFINITY_GAIN_DIVISOR = 3;      // 선택지/직접 입력 호감도 상승 완화(기존의 1/3 수준)
-const MAX_AFFINITY_GAIN = 2;           // 1회 반응당 최대 +2로 제한
-const AI_AFFINITY_CLAMP = 3;           // AI delta는 -2~3로 제한
+const AFFINITY_GAIN_DIVISOR = 3;
+const MAX_AFFINITY_GAIN = 2;
+const AI_AFFINITY_CLAMP = 3;
 const AI_TYPING_DELAY = 900;
 const RULE_TYPING_DELAY = 500;
 
@@ -15,13 +16,12 @@ const affinityStages = [
   { min: 19, max: 32, status: '짧은 메시지였는데 마음이 정돈된다. 좋은 신호야.', img: 'assets/profile/stage3.png' },
   { min: 33, max: 48, status: '네가 있으면 대화가 길어져도 부담스럽지 않다.', img: 'assets/profile/stage4.png' },
   { min: 49, max: 68, status: '오늘은 네 덕분에 일정 관리도 차분해졌어.', img: 'assets/profile/stage5.png' },
-  { min: 69, max: 88, status: '상대방이 나를 기다려줬다는 느낌이 들면 고맙다.', img: 'assets/profile/stage6.png' },
+  { min: 69, max: 88, status: '상대가 나를 기다려줬다는 느낌이 들면 고맙다.', img: 'assets/profile/stage6.png' },
   { min: 89, max: 140, status: '너와의 톤이 제일 편하다. 이런 날이 오래오래 가면 좋겠다.', img: 'assets/profile/stage7.png' },
 ];
 
 const scenes = {
   start: {
-    speaker: 'hero',
     text: '채은성: 오늘도 훈련 끝났어. 목소리만 들어도 오늘 컨디션이 정리될 것 같아.',
     choices: [
       { label: '수고했어. 오늘은 많이 버텼으니 잘 쉬어', gain: 8, next: 'care1' },
@@ -30,8 +30,6 @@ const scenes = {
     ],
   },
   care1: {
-    speaker: 'me',
-    text: '오늘도 버텼다니 멋있다, 이 말로 끝내고 싶어.',
     nextHeroLine: '채은성: 나한테는 이런 말이 가장 정확한 응원 같아. 과장 없이 고마워.',
     choices: [
       { label: '응원 메시지 기록해둘게, 다시 보내도 괜찮지?', gain: 9, next: 'more1' },
@@ -40,8 +38,6 @@ const scenes = {
     ],
   },
   care2: {
-    speaker: 'me',
-    text: '지금은 속도를 줄여야 할 타이밍 같아. 오늘은 진짜 많이 달릴 필요 없어.',
     nextHeroLine: '채은성: 단호한 말투가 좋아. 오히려 그게 나한테는 편한 편이야.',
     choices: [
       { label: '좋아, 오늘은 기록만 정리해', gain: 8, next: 'more3' },
@@ -50,8 +46,6 @@ const scenes = {
     ],
   },
   care3: {
-    speaker: 'me',
-    text: '통화도 좋고 글도 좋아. 편할 때 연락해.',
     nextHeroLine: '채은성: 그래, 과하게 기대하지 않고 오늘은 이렇게만 끝내자.',
     choices: [
       { label: '통화는 네가 힘이 나는 날에 하자', gain: 9, next: 'more2' },
@@ -60,7 +54,6 @@ const scenes = {
     ],
   },
   more1: {
-    speaker: 'hero',
     text: '채은성: 좋은 조언이야. 네가 말해주면 오히려 덜 흔들린다.',
     choices: [
       { label: '기록 보면서 조절하면 돼', gain: 8, next: 'end1' },
@@ -69,7 +62,6 @@ const scenes = {
     ],
   },
   more2: {
-    speaker: 'hero',
     text: '채은성: 루틴을 묶는 건 네 스타일이 잘 맞는다. 안정적인 장단이 좋네.',
     choices: [
       { label: '그럼 내가 다음 루틴 체크표 만들어줄게', gain: 10, next: 'end2' },
@@ -78,7 +70,6 @@ const scenes = {
     ],
   },
   more3: {
-    speaker: 'hero',
     text: '채은성: 무리하면 안 돼. 이게 오래 가는 방식이니까.',
     choices: [
       { label: '네 스케줄 기준으로 내가 맞춰볼게', gain: 9, next: 'end1' },
@@ -87,19 +78,16 @@ const scenes = {
     ],
   },
   end1: {
-    speaker: 'hero',
     text: '채은성: 오늘 말한 걸 잊지 않을게. 다음엔 더 잘 정리해서 이야기하자.',
     choices: [{ label: '다음 대화로', gain: 3, next: 'start' }],
     end: true,
   },
   end2: {
-    speaker: 'hero',
     text: '채은성: 루틴은 천천히 쌓는 게 이긴다. 너 덕분에 덜 흔들린다.',
     choices: [{ label: '오늘은 여기까지', gain: 4, next: 'start' }],
     end: true,
   },
   end3: {
-    speaker: 'hero',
     text: '채은성: 네가 먼저 지치지 않게 챙겨줬다. 그게 제일 큼.',
     choices: [{ label: '좋은 밤', gain: 4, next: 'start' }],
     end: true,
@@ -107,21 +95,23 @@ const scenes = {
 };
 
 const el = {
+  shell: document.getElementById('chatShell'),
+  login: document.getElementById('loginScreen'),
+  userInput: document.getElementById('userNameInput'),
+  loginBtn: document.getElementById('loginBtn'),
+  clearBtn: document.getElementById('clearBtn'),
   frame: document.getElementById('chatFrame'),
-  choices: document.getElementById('choices'),
   status: document.getElementById('heroStatus'),
   avatar: document.getElementById('heroAvatar'),
   heart: document.getElementById('heartText'),
   profileBtn: document.getElementById('profileBtn'),
   input: document.getElementById('chatInput'),
   sendBtn: document.getElementById('sendBtn'),
-  saveBtn: document.getElementById('saveBtn'),
-  loadBtn: document.getElementById('loadBtn'),
-  resetBtn: document.getElementById('resetBtn'),
   heartBtn: document.getElementById('heartBtn'),
 };
 
 const state = {
+  user: null,
   scene: 'start',
   affinity: 0,
   history: [],
@@ -132,6 +122,18 @@ const state = {
 
 let typingBubble = null;
 
+function sanitizeUser(name) {
+  return String(name || '').trim().replace(/[\x00-\x1f\x7f]/g, '').slice(0, 24);
+}
+
+function storageKey(user) {
+  return `${STORAGE_KEY_PREFIX}${encodeURIComponent(user || '').toLowerCase()}`;
+}
+
+function stageForAffinity(a) {
+  return affinityStages.find((s) => a >= s.min && a <= s.max) || affinityStages[affinityStages.length - 1];
+}
+
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
@@ -140,8 +142,44 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function stageForAffinity(a) {
-  return affinityStages.find((s) => a >= s.min && a <= s.max) || affinityStages[affinityStages.length - 1];
+function stripSpeakerTag(text) {
+  return String(text).replace(/^채은성:\s*/g, '');
+}
+
+function showTypingIndicator() {
+  if (typingBubble) return;
+  const row = document.createElement('div');
+  row.className = 'msg hero typing';
+
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  const label = document.createElement('span');
+  label.className = 'name-label';
+  label.textContent = '채은성';
+  b.appendChild(label);
+
+  const dots = document.createElement('span');
+  dots.className = 'dots';
+  dots.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  b.appendChild(dots);
+  row.appendChild(b);
+  el.frame.appendChild(row);
+  el.frame.scrollTop = el.frame.scrollHeight;
+  typingBubble = row;
+}
+
+function hideTypingIndicator() {
+  if (!typingBubble) return;
+  typingBubble.remove();
+  typingBubble = null;
+}
+
+function setBusy(on) {
+  state.busy = on;
+  el.sendBtn.disabled = on;
+  el.input.disabled = on;
+  el.profileBtn.disabled = on;
+  el.heartBtn.disabled = on;
 }
 
 function renderStatus() {
@@ -159,106 +197,21 @@ function bubble(side, text, showName = false) {
   row.className = `msg ${side}`;
   const b = document.createElement('div');
   b.className = 'bubble';
-
   if (side === 'hero' && showName) {
     const label = document.createElement('span');
     label.className = 'name-label';
     label.textContent = '채은성';
     b.appendChild(label);
   }
-
   b.appendChild(document.createTextNode(text));
   row.appendChild(b);
   el.frame.appendChild(row);
   el.frame.scrollTop = el.frame.scrollHeight;
-
-  return row;
-}
-
-function showTypingIndicator() {
-  if (typingBubble) return;
-  const row = document.createElement('div');
-  row.className = 'msg hero typing';
-
-  const b = document.createElement('div');
-  b.className = 'bubble';
-
-  const label = document.createElement('span');
-  label.className = 'name-label';
-  label.textContent = '채은성';
-  b.appendChild(label);
-
-  const dots = document.createElement('span');
-  dots.className = 'dots';
-  dots.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-  b.appendChild(dots);
-
-  row.appendChild(b);
-  el.frame.appendChild(row);
-  el.frame.scrollTop = el.frame.scrollHeight;
-  typingBubble = row;
-}
-
-function hideTypingIndicator() {
-  if (!typingBubble) return;
-  typingBubble.remove();
-  typingBubble = null;
-}
-
-function setBusy(on) {
-  state.busy = on;
-  const disabled = on;
-
-  el.sendBtn.disabled = disabled;
-  el.input.disabled = disabled;
-  el.saveBtn.disabled = disabled;
-  el.loadBtn.disabled = disabled;
-  el.resetBtn.disabled = disabled;
-  el.profileBtn.disabled = disabled;
-  el.heartBtn.disabled = disabled;
-
-  if (!disabled) {
-    // choices disabled individually in drawChoices
-    enableChoiceButtons();
-  }
-}
-
-function disableChoiceButtons() {
-  const buttons = el.choices.querySelectorAll('button');
-  buttons.forEach((b) => (b.disabled = true));
-}
-
-function enableChoiceButtons() {
-  const buttons = el.choices.querySelectorAll('button');
-  buttons.forEach((b) => (b.disabled = false));
-}
-
-function clearChoices() {
-  el.choices.innerHTML = '';
 }
 
 function appendHistory(who, text) {
   state.history.push({ who, text, at: Date.now() });
   if (state.history.length > 200) state.history = state.history.slice(-200);
-}
-
-function drawChoices(scene) {
-  clearChoices();
-
-  (scene.choices || []).forEach((choice) => {
-    const btn = document.createElement('button');
-    btn.className = 'choice';
-    btn.textContent = choice.label;
-    btn.disabled = state.busy;
-    btn.onclick = async () => {
-      await applyChoice(choice, scene);
-    };
-    el.choices.appendChild(btn);
-  });
-}
-
-function normalizeText(text) {
-  return text.trim().toLowerCase();
 }
 
 function applyAffinityGain(rawGain) {
@@ -271,6 +224,10 @@ function applyAiAffinityDelta(delta) {
   return clamp(Number(delta || 0), -2, AI_AFFINITY_CLAMP);
 }
 
+function normalizeText(text) {
+  return text.trim().toLowerCase();
+}
+
 function inferChoiceFromText(sceneObj, text) {
   const normalized = normalizeText(text);
   const choices = sceneObj?.choices || [];
@@ -278,9 +235,8 @@ function inferChoiceFromText(sceneObj, text) {
 
   if (/(통화|통톡|전화|통화할|산책|만남|대면|직접|전화해)/.test(normalized)) return choices[Math.min(2, choices.length - 1)];
   if (/(루틴|기록|정리|체크|일정|알람|약속|스케줄|운동표|체크리스트)/.test(normalized)) return choices[Math.min(1, choices.length - 1)];
-  if (/(쉬|안정|휴식|수고|고생|힘들|잘|피로|잠|쉬어|조급)/.test(normalized)) return choices[0];
+  if (/(쉬|안정|휴식|수고|고생|힘들|피로|잠|쉬어|조급)/.test(normalized)) return choices[0];
 
-  // fallback: common keyword overlap
   const textWords = normalized.split(/\s+/);
   let best = { index: 0, score: 0 };
   choices.forEach((choice, idx) => {
@@ -300,7 +256,6 @@ async function callAI(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-
   if (!res.ok) return null;
   const data = await res.json();
   if (!data || typeof data !== 'object') return null;
@@ -314,14 +269,81 @@ async function callAI(payload) {
   };
 }
 
-function stripSpeakerTag(text) {
-  return String(text).replace(/^채은성:\s*/g, '');
+function getUserSaveKey() {
+  return storageKey(state.user);
+}
+
+function saveState(notify = false) {
+  if (!state.user) return;
+  const data = {
+    user: state.user,
+    scene: state.scene,
+    affinity: state.affinity,
+    history: state.history,
+    profileClicks: state.profileClicks,
+    aiMode: state.aiMode,
+    updated: Date.now(),
+  };
+  localStorage.setItem(getUserSaveKey(), JSON.stringify(data));
+  localStorage.setItem(LAST_USER_KEY, state.user);
+  if (notify) localStorage.setItem(SAVE_NOTES_KEY, `saved@${new Date().toISOString()}`);
+}
+
+function loadStateForUser(user) {
+  const raw = localStorage.getItem(storageKey(user));
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.user !== user) return false;
+    state.scene = parsed.scene || 'start';
+    state.affinity = clamp(Number(parsed.affinity) || 0, 0, AFFINITY_MAX);
+    state.history = Array.isArray(parsed.history) ? parsed.history : [];
+    state.profileClicks = Number(parsed.profileClicks) || 0;
+    state.aiMode = Boolean(parsed.aiMode);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function switchToChatScreen() {
+  el.login.classList.remove('show');
+  el.login.setAttribute('aria-hidden', 'true');
+  el.shell.classList.add('active');
+  el.shell.setAttribute('aria-hidden', 'false');
+  el.input.focus();
+}
+
+function renderFromHistory() {
+  el.frame.innerHTML = '';
+  state.history.forEach((h) => {
+    bubble(h.who === 'me' ? 'me' : 'hero', h.text, h.who !== 'me');
+  });
+  renderStatus();
+}
+
+function renderSceneStart() {
+  const scene = scenes[state.scene] || scenes.start;
+  state.scene = state.scene || 'start';
+
+  const text = scene.text || scene.nextHeroLine || '채은성: ...';
+  bubble('hero', stripSpeakerTag(text), true);
+  appendHistory('hero', stripSpeakerTag(text));
+  if (scene.nextHeroLine) {
+    setTimeout(() => {
+      const follow = stripSpeakerTag(scene.nextHeroLine);
+      bubble('hero', follow, true);
+      appendHistory('hero', follow);
+      saveState(false);
+      renderStatus();
+    }, 220);
+  }
+  renderStatus();
 }
 
 async function handleHeroReply(heroLine, nextSceneId = null, delta = 0, useTyping = true, delayMs = RULE_TYPING_DELAY) {
   if (useTyping) {
     showTypingIndicator();
-    disableChoiceButtons();
     setBusy(true);
     await sleep(delayMs);
   }
@@ -329,59 +351,23 @@ async function handleHeroReply(heroLine, nextSceneId = null, delta = 0, useTypin
   hideTypingIndicator();
   state.affinity = clamp(state.affinity + delta, 0, AFFINITY_MAX);
 
-  const cleanText = stripSpeakerTag(heroLine);
-  bubble('hero', cleanText, true);
-  appendHistory('hero', cleanText);
+  const clean = stripSpeakerTag(heroLine);
+  bubble('hero', clean, true);
+  appendHistory('hero', clean);
 
   if (nextSceneId && scenes[nextSceneId]) state.scene = nextSceneId;
 
   renderStatus();
-  const scene = scenes[state.scene] || scenes.start;
-  drawChoices(scene);
-  setBusy(false);
   saveState(false);
-}
+  setBusy(false);
 
-async function applyChoice(choice, sceneObj) {
-  if (state.busy) return;
-
-  const choiceGain = applyAffinityGain(choice.gain);
-  state.affinity = clamp(state.affinity + choiceGain, 0, AFFINITY_MAX);
-  appendHistory('me', choice.label);
-  bubble('me', choice.label);
-
-  const nextDefault = scenes[choice.next] || scenes.start;
-  let heroLine = sceneObj.nextHeroLine || nextDefault.text;
-  let delta = 0;
-  let nextSceneId = choice.next;
-
-  if (state.aiMode) {
-    const aiInput = await callAI({
-      userChoiceLabel: choice.label,
-      scene: state.scene,
-      affinity: state.affinity,
-      nextFallback: choice.next,
-      recentHistory: state.history.slice(-8),
-    }).catch(() => null);
-
-    if (aiInput) {
-      heroLine = aiInput.heroText;
-      delta = applyAiAffinityDelta(aiInput.affinityDelta);
-      nextSceneId = scenes[aiInput.nextScene] ? aiInput.nextScene : choice.next;
-      if (aiInput.status) {
-        // reserved for future: could display custom stage status
-      }
-    }
-  } else if (sceneObj.nextHeroLine) {
-    heroLine = sceneObj.nextHeroLine;
+  if (state.scene === 'start' && el.frame.scrollTop >= 0) {
+    // no-op
   }
-
-  await handleHeroReply(heroLine, nextSceneId, delta, true, state.aiMode ? AI_TYPING_DELAY : RULE_TYPING_DELAY);
 }
 
 async function applyTyped(text) {
   if (state.busy) return;
-
   const msg = text.trim();
   if (!msg) return;
   el.input.value = '';
@@ -397,6 +383,7 @@ async function applyTyped(text) {
       scene: state.scene,
       affinity: state.affinity,
       recentHistory: state.history.slice(-8),
+      user: state.user,
     }).catch(() => null);
 
     if (ai) {
@@ -407,96 +394,81 @@ async function applyTyped(text) {
       return;
     }
 
-    // fallback to rule mode when AI unavailable
-    const fallback = '답변이 지연돼서, 내가 기본 루틴으로 처리할게. 그래도 충분히 잘 와닿아.';
+    const fallback = '답변이 지연돼서, 기본 루틴으로 처리할게. 천천히 가자.';
     await handleHeroReply(fallback, state.scene, 0, true, AI_TYPING_DELAY);
     return;
   }
 
   const inferred = inferChoiceFromText(sceneObj, msg);
   const chosen = inferred || { next: 'start', gain: 0 };
-  const inferredGain = applyAffinityGain(chosen.gain);
-  state.affinity = clamp(state.affinity + inferredGain, 0, AFFINITY_MAX);
+  state.affinity = clamp(state.affinity + applyAffinityGain(chosen.gain), 0, AFFINITY_MAX);
 
-  let base = sceneObj.nextHeroLine || scenes[chosen.next].text;
-  const nextSceneId = scenes[chosen.next] ? chosen.next : 'start';
-  state.scene = nextSceneId;
-
-  await handleHeroReply(base, nextSceneId, 0, true, RULE_TYPING_DELAY);
+  const nextScene = scenes[chosen.next] || scenes.start;
+  const base = sceneObj.nextHeroLine || nextScene.text || '채은성: ...';
+  state.scene = chosen.next;
+  await handleHeroReply(base, state.scene, 0, true, RULE_TYPING_DELAY);
 }
 
-function hydrateFromHistory() {
-  clearChoices();
-  el.frame.innerHTML = '';
-
-  state.history.forEach((h) => {
-    bubble(h.who === 'me' ? 'me' : 'hero', h.text, h.who !== 'me');
-  });
-
-  drawChoices(scenes[state.scene] || scenes.start);
-  renderStatus();
-  setBusy(false);
-}
-
-function renderScene(sceneId) {
-  const scene = scenes[sceneId] || scenes.start;
-  state.scene = sceneId;
-
-  bubble('hero', stripSpeakerTag(scene.text), true);
-  appendHistory('hero', stripSpeakerTag(scene.text));
-
-  drawChoices(scene);
-  renderStatus();
-
-  if (scene.nextHeroLine) {
-    setTimeout(() => {
-      const clean = stripSpeakerTag(scene.nextHeroLine);
-      bubble('hero', clean, true);
-      appendHistory('hero', clean);
-      renderStatus();
-      saveState(false);
-    }, 240);
+function doLogin() {
+  const user = sanitizeUser(el.userInput.value || '');
+  if (!user) {
+    el.userInput.focus();
+    return;
   }
-}
 
-function saveState(notify = false) {
-  const data = {
-    scene: state.scene,
-    affinity: state.affinity,
-    history: state.history,
-    profileClicks: state.profileClicks,
-    aiMode: state.aiMode,
-    updated: Date.now(),
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  if (notify) localStorage.setItem(SAVE_NOTES_KEY, `saved@${new Date().toISOString()}`);
-}
+  state.user = user;
+  state.scene = 'start';
+  state.affinity = 0;
+  state.history = [];
+  state.profileClicks = 0;
 
-function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return false;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed) return false;
-    state.scene = parsed.scene || 'start';
-    state.affinity = clamp(Number(parsed.affinity) || 0, 0, AFFINITY_MAX);
-    state.profileClicks = Number(parsed.profileClicks) || 0;
-    state.history = Array.isArray(parsed.history) ? parsed.history : [];
-    state.aiMode = Boolean(parsed.aiMode);
-    return true;
-  } catch {
-    return false;
+  if (!loadStateForUser(user)) {
+    renderSceneStart();
+  } else {
+    renderFromHistory();
   }
+
+  saveState(true);
+  switchToChatScreen();
+  renderStatus();
 }
+
+el.loginBtn.addEventListener('click', doLogin);
+el.clearBtn.addEventListener('click', () => {
+  el.userInput.value = '';
+  el.userInput.focus();
+});
+el.userInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) {
+    e.preventDefault();
+    doLogin();
+  }
+});
+
+el.sendBtn.addEventListener('click', () => {
+  if (state.busy || !state.user) return;
+  const text = el.input.value;
+  if (!text.trim()) return;
+  applyTyped(text);
+});
+
+el.input?.addEventListener('keydown', (e) => {
+  if (state.busy || !state.user) return;
+  if (e.key === 'Enter' && !e.isComposing) {
+    e.preventDefault();
+    el.sendBtn.click();
+  }
+});
 
 el.profileBtn.addEventListener('click', () => {
-  if (state.busy) return;
+  if (state.busy || !state.user) return;
   state.profileClicks += 1;
   state.affinity = clamp(state.affinity + 1, 0, AFFINITY_MAX);
   const stage = stageForAffinity(state.affinity);
 
-  appendHistory('hero', stage.status);
-  bubble('hero', stage.status, true);
+  const msg = stage.status;
+  appendHistory('hero', msg);
+  bubble('hero', msg, true);
 
   if (state.profileClicks % 2 === 0) {
     const extra = '상태를 눌렀더니 오늘 분위기가 한결 정리됐다.';
@@ -508,33 +480,6 @@ el.profileBtn.addEventListener('click', () => {
   saveState(false);
 });
 
-el.saveBtn.addEventListener('click', () => {
-  saveState(true);
-  alert('세이브 완료.');
-});
-
-el.loadBtn.addEventListener('click', () => {
-  if (loadState()) {
-    hydrateFromHistory();
-    alert('불러오기 완료.');
-  } else {
-    alert('불러올 저장이 없어요.');
-  }
-});
-
-el.resetBtn.addEventListener('click', () => {
-  if (state.busy) return;
-  localStorage.removeItem(STORAGE_KEY);
-  state.scene = 'start';
-  state.affinity = 0;
-  state.history = [];
-  state.profileClicks = 0;
-  el.frame.innerHTML = '';
-  renderScene('start');
-  setBusy(false);
-  saveState(false);
-});
-
 el.heartBtn?.addEventListener('click', () => {
   const want = prompt('AI 모드(채팅형)로 전환할까요? (yes 입력 시 ON, 아니면 OFF)');
   if (want && want.toLowerCase() === 'yes') {
@@ -542,31 +487,23 @@ el.heartBtn?.addEventListener('click', () => {
     alert('AI 모드 ON. /api/reply 브리지 연결이 필요해요.');
   } else if (want) {
     state.aiMode = false;
-    alert('AI 모드 OFF. 대화 규칙 기반으로 진행할게.');
+    alert('AI 모드 OFF. 규칙 기반으로 진행할게.');
   }
   renderStatus();
   saveState(false);
 });
 
-el.sendBtn.addEventListener('click', () => {
-  if (state.busy) return;
-  const text = el.input.value;
-  if (!text.trim()) return;
-  applyTyped(text);
-});
-
-el.input?.addEventListener('keydown', (e) => {
-  if (state.busy) return;
-  if (e.key === 'Enter' && !e.isComposing) {
-    e.preventDefault();
-    el.sendBtn.click();
+function boot() {
+  const lastUser = sanitizeUser(localStorage.getItem(LAST_USER_KEY));
+  if (lastUser) {
+    el.userInput.value = lastUser;
   }
-});
 
-renderStatus();
-if (loadState()) {
-  hydrateFromHistory();
-} else {
-  renderScene('start');
-  setBusy(false);
+  el.login.classList.add('show');
+  el.login.setAttribute('aria-hidden', 'false');
+  el.shell.classList.remove('active');
+  el.shell.setAttribute('aria-hidden', 'true');
+  setTimeout(() => el.userInput.focus(), 10);
 }
+
+boot();

@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <main class="app">
+  <main class="app" id="chatShell" aria-hidden="true">
     <header class="chat-topbar">
       <button id="profileBtn" class="profile-btn" aria-label="채은성 프로필">
         <img id="heroAvatar" src="" alt="채은성 프로필" />
@@ -22,23 +22,26 @@
 
     <section class="chat-frame" id="chatFrame" aria-live="polite"></section>
 
-    <section class="choices" id="choices"></section>
-
     <section class="composer">
       <input id="chatInput" type="text" inputmode="text" maxlength="160" placeholder="직접 메시지를 써서 채은성에게 보내기" autocomplete="off" />
       <button id="sendBtn" class="send">전송</button>
-    </section>
-
-    <section id="controls" class="controls">
-      <button id="saveBtn" class="ghost">저장</button>
-      <button id="loadBtn" class="ghost">불러오기</button>
-      <button id="resetBtn" class="ghost">초기화</button>
     </section>
 
     <footer>
       <small>forjoeun · 텍스트 기반 미연시 프리뷰</small>
     </footer>
   </main>
+
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <h1>forjoeun</h1>
+      <p>처음이든 이어하기든<br/>이름을 입력하고 시작해</p>
+      <input id="userNameInput" type="text" maxlength="24" placeholder="닉네임(최대 24자)" />
+      <button id="loginBtn" class="send">시작하기</button>
+      <small>입력한 닉네임 기준으로 자동 저장/불러오기</small>
+      <button id="clearBtn" class="ghost ghost-link" type="button">입력 초기화</button>
+    </div>
+  </section>
 
   <script src="./script.js"></script>
 </body>
