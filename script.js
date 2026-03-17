@@ -3,6 +3,8 @@ const SAVE_NOTES_KEY = 'forjoeun_saved_status_v3';
 const AI_ENDPOINT = '/api/reply';
 
 const AFFINITY_MAX = 140;
+const AI_TYPING_DELAY = 900;
+const RULE_TYPING_DELAY = 500;
 
 const affinityStages = [
   { min: 0, max: 8, status: '요즘은 훈련 루틴이 먼저야. 근데 네가 챙겨주니까 안정감이 있어.', img: 'assets/profile/stage1.png' },
@@ -122,10 +124,17 @@ const state = {
   history: [],
   profileClicks: 0,
   aiMode: false,
+  busy: false,
 };
+
+let typingBubble = null;
 
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function stageForAffinity(a) {
@@ -159,6 +168,66 @@ function bubble(side, text, showName = false) {
   row.appendChild(b);
   el.frame.appendChild(row);
   el.frame.scrollTop = el.frame.scrollHeight;
+
+  return row;
+}
+
+function showTypingIndicator() {
+  if (typingBubble) return;
+  const row = document.createElement('div');
+  row.className = 'msg hero typing';
+
+  const b = document.createElement('div');
+  b.className = 'bubble';
+
+  const label = document.createElement('span');
+  label.className = 'name-label';
+  label.textContent = '채은성';
+  b.appendChild(label);
+
+  const dots = document.createElement('span');
+  dots.className = 'dots';
+  dots.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  b.appendChild(dots);
+
+  row.appendChild(b);
+  el.frame.appendChild(row);
+  el.frame.scrollTop = el.frame.scrollHeight;
+  typingBubble = row;
+}
+
+function hideTypingIndicator() {
+  if (!typingBubble) return;
+  typingBubble.remove();
+  typingBubble = null;
+}
+
+function setBusy(on) {
+  state.busy = on;
+  const disabled = on;
+
+  el.sendBtn.disabled = disabled;
+  el.input.disabled = disabled;
+  el.saveBtn.disabled = disabled;
+  el.loadBtn.disabled = disabled;
+  el.resetBtn.disabled = disabled;
+  el.profileBtn.disabled = disabled;
+  el.heartBtn.disabled = disabled;
+
+  if (!disabled) {
+    // choices disabled individually in drawChoices
+    enableChoiceButtons();
+  }
+}
+
+function disableChoiceButtons() {
+  const buttons = el.choices.querySelectorAll('button');
+  buttons.forEach((b) => (b.disabled = true));
+}
+
+function enableChoiceButtons() {
+  const buttons = el.choices.querySelectorAll('button');
+  buttons.forEach((b) => (b.disabled = false));
 }
 
 function clearChoices() {
@@ -177,6 +246,7 @@ function drawChoices(scene) {
     const btn = document.createElement('button');
     btn.className = 'choice';
     btn.textContent = choice.label;
+    btn.disabled = state.busy;
     btn.onclick = async () => {
       await applyChoice(choice, scene);
     };
@@ -197,13 +267,14 @@ function inferChoiceFromText(sceneObj, text) {
   if (/(루틴|기록|정리|체크|일정|알람|약속|스케줄|운동표|체크리스트)/.test(normalized)) return choices[Math.min(1, choices.length - 1)];
   if (/(쉬|안정|휴식|수고|고생|힘들|잘|피로|잠|쉬어|조급)/.test(normalized)) return choices[0];
 
-  // fallback: 공통 키워드로 각 선택지 라벨 매칭
+  // fallback: common keyword overlap
   const textWords = normalized.split(/\s+/);
   let best = { index: 0, score: 0 };
   choices.forEach((choice, idx) => {
     const label = normalizeText(choice.label);
     const labelWords = label.split(/\s+/);
-    const score = labelWords.reduce((acc, w) => (normalized.includes(w) ? acc + 1 : acc), 0) + textWords.reduce((acc, w) => (label.includes(w) ? acc + 1 : acc), 0);
+    const score = labelWords.reduce((acc, w) => (normalized.includes(w) ? acc + 1 : acc), 0)
+      + textWords.reduce((acc, w) => (label.includes(w) ? acc + 1 : acc), 0);
     if (score > best.score) best = { index: idx, score };
   });
 
@@ -234,7 +305,33 @@ function stripSpeakerTag(text) {
   return String(text).replace(/^채은성:\s*/g, '');
 }
 
+async function handleHeroReply(heroLine, nextSceneId = null, delta = 0, useTyping = true, delayMs = RULE_TYPING_DELAY) {
+  if (useTyping) {
+    showTypingIndicator();
+    disableChoiceButtons();
+    setBusy(true);
+    await sleep(delayMs);
+  }
+
+  hideTypingIndicator();
+  state.affinity = clamp(state.affinity + delta, 0, AFFINITY_MAX);
+
+  const cleanText = stripSpeakerTag(heroLine);
+  bubble('hero', cleanText, true);
+  appendHistory('hero', cleanText);
+
+  if (nextSceneId && scenes[nextSceneId]) state.scene = nextSceneId;
+
+  renderStatus();
+  const scene = scenes[state.scene] || scenes.start;
+  drawChoices(scene);
+  setBusy(false);
+  saveState(false);
+}
+
 async function applyChoice(choice, sceneObj) {
+  if (state.busy) return;
+
   state.affinity = clamp(state.affinity + (choice.gain || 0), 0, AFFINITY_MAX);
   appendHistory('me', choice.label);
   bubble('me', choice.label);
@@ -258,29 +355,22 @@ async function applyChoice(choice, sceneObj) {
       delta = aiInput.affinityDelta;
       nextSceneId = scenes[aiInput.nextScene] ? aiInput.nextScene : choice.next;
       if (aiInput.status) {
-        // status is applied by normal stage update
+        // reserved for future: could display custom stage status
       }
     }
   } else if (sceneObj.nextHeroLine) {
     heroLine = sceneObj.nextHeroLine;
   }
 
-  state.affinity = clamp(state.affinity + delta, 0, AFFINITY_MAX);
-  const cleanText = stripSpeakerTag(heroLine);
-  bubble('hero', cleanText, true);
-  appendHistory('hero', cleanText);
-
-  const nextScene = scenes[nextSceneId] || scenes.start;
-  state.scene = nextSceneId;
-  renderStatus();
-  drawChoices(nextScene);
-  saveState(false);
+  await handleHeroReply(heroLine, nextSceneId, delta, true, state.aiMode ? AI_TYPING_DELAY : RULE_TYPING_DELAY);
 }
 
 async function applyTyped(text) {
+  if (state.busy) return;
+
   const msg = text.trim();
   if (!msg) return;
-
+  el.input.value = '';
   appendHistory('me', msg);
   bubble('me', msg);
 
@@ -298,45 +388,26 @@ async function applyTyped(text) {
     if (ai) {
       const nextSceneId = scenes[ai.nextScene] ? ai.nextScene : state.scene;
       const clean = stripSpeakerTag(ai.heroText);
-      state.affinity = clamp(state.affinity + (Number(ai.affinityDelta) || 0), 0, AFFINITY_MAX);
-      appendHistory('hero', clean);
-      bubble('hero', clean, true);
-      state.scene = nextSceneId;
-      renderStatus();
-      drawChoices(scenes[state.scene] || scenes.start);
-      saveState(false);
+      const delta = Number(ai.affinityDelta) || 0;
+      await handleHeroReply(clean, nextSceneId, delta, true, AI_TYPING_DELAY);
       return;
     }
 
     // fallback to rule mode when AI unavailable
     const fallback = '답변이 지연돼서, 내가 기본 루틴으로 처리할게. 그래도 충분히 잘 와닿아.';
-    state.affinity = clamp(state.affinity + 1, 0, AFFINITY_MAX);
-    appendHistory('hero', fallback);
-    bubble('hero', fallback, true);
-    renderStatus();
-    drawChoices(sceneObj);
-    saveState(false);
+    await handleHeroReply(fallback, state.scene, 1, true, AI_TYPING_DELAY);
     return;
   }
 
   const inferred = inferChoiceFromText(sceneObj, msg);
-  if (inferred) {
-    state.affinity = clamp(state.affinity + (inferred.gain || 0), 0, AFFINITY_MAX);
-    const nextScene = scenes[inferred.next] || scenes.start;
-    const base = sceneObj.nextHeroLine || nextScene.text;
-    appendHistory('hero', base);
-    bubble('hero', stripSpeakerTag(base), true);
-    state.scene = inferred.next;
-  } else {
-    const base = scenes.start.text;
-    appendHistory('hero', stripSpeakerTag(base));
-    bubble('hero', stripSpeakerTag(base), true);
-    state.scene = 'start';
-  }
+  const chosen = inferred || { next: 'start', gain: 0 };
+  state.affinity = clamp(state.affinity + (chosen.gain || 0), 0, AFFINITY_MAX);
 
-  renderStatus();
-  drawChoices(scenes[state.scene] || scenes.start);
-  saveState(false);
+  let base = sceneObj.nextHeroLine || scenes[chosen.next].text;
+  const nextSceneId = scenes[chosen.next] ? chosen.next : 'start';
+  state.scene = nextSceneId;
+
+  await handleHeroReply(base, nextSceneId, 0, true, RULE_TYPING_DELAY);
 }
 
 function hydrateFromHistory() {
@@ -349,6 +420,7 @@ function hydrateFromHistory() {
 
   drawChoices(scenes[state.scene] || scenes.start);
   renderStatus();
+  setBusy(false);
 }
 
 function renderScene(sceneId) {
@@ -403,6 +475,7 @@ function loadState() {
 }
 
 el.profileBtn.addEventListener('click', () => {
+  if (state.busy) return;
   state.profileClicks += 1;
   state.affinity = clamp(state.affinity + 1, 0, AFFINITY_MAX);
   const stage = stageForAffinity(state.affinity);
@@ -435,6 +508,7 @@ el.loadBtn.addEventListener('click', () => {
 });
 
 el.resetBtn.addEventListener('click', () => {
+  if (state.busy) return;
   localStorage.removeItem(STORAGE_KEY);
   state.scene = 'start';
   state.affinity = 0;
@@ -442,6 +516,7 @@ el.resetBtn.addEventListener('click', () => {
   state.profileClicks = 0;
   el.frame.innerHTML = '';
   renderScene('start');
+  setBusy(false);
   saveState(false);
 });
 
@@ -459,13 +534,14 @@ el.heartBtn?.addEventListener('click', () => {
 });
 
 el.sendBtn.addEventListener('click', () => {
+  if (state.busy) return;
   const text = el.input.value;
   if (!text.trim()) return;
-  el.input.value = '';
   applyTyped(text);
 });
 
 el.input?.addEventListener('keydown', (e) => {
+  if (state.busy) return;
   if (e.key === 'Enter' && !e.isComposing) {
     e.preventDefault();
     el.sendBtn.click();
@@ -473,5 +549,9 @@ el.input?.addEventListener('keydown', (e) => {
 });
 
 renderStatus();
-if (loadState()) hydrateFromHistory();
-else renderScene('start');
+if (loadState()) {
+  hydrateFromHistory();
+} else {
+  renderScene('start');
+  setBusy(false);
+}
