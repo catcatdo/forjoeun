@@ -3,6 +3,9 @@ const SAVE_NOTES_KEY = 'forjoeun_saved_status_v3';
 const AI_ENDPOINT = '/api/reply';
 
 const AFFINITY_MAX = 140;
+const AFFINITY_GAIN_DIVISOR = 3;      // 선택지/직접 입력 호감도 상승 완화(기존의 1/3 수준)
+const MAX_AFFINITY_GAIN = 2;           // 1회 반응당 최대 +2로 제한
+const AI_AFFINITY_CLAMP = 3;           // AI delta는 -2~3로 제한
 const AI_TYPING_DELAY = 900;
 const RULE_TYPING_DELAY = 500;
 
@@ -258,6 +261,16 @@ function normalizeText(text) {
   return text.trim().toLowerCase();
 }
 
+function applyAffinityGain(rawGain) {
+  const base = Number(rawGain || 0);
+  const reduced = Math.round(base / AFFINITY_GAIN_DIVISOR);
+  return clamp(reduced, 0, MAX_AFFINITY_GAIN);
+}
+
+function applyAiAffinityDelta(delta) {
+  return clamp(Number(delta || 0), -2, AI_AFFINITY_CLAMP);
+}
+
 function inferChoiceFromText(sceneObj, text) {
   const normalized = normalizeText(text);
   const choices = sceneObj?.choices || [];
@@ -332,7 +345,8 @@ async function handleHeroReply(heroLine, nextSceneId = null, delta = 0, useTypin
 async function applyChoice(choice, sceneObj) {
   if (state.busy) return;
 
-  state.affinity = clamp(state.affinity + (choice.gain || 0), 0, AFFINITY_MAX);
+  const choiceGain = applyAffinityGain(choice.gain);
+  state.affinity = clamp(state.affinity + choiceGain, 0, AFFINITY_MAX);
   appendHistory('me', choice.label);
   bubble('me', choice.label);
 
@@ -352,7 +366,7 @@ async function applyChoice(choice, sceneObj) {
 
     if (aiInput) {
       heroLine = aiInput.heroText;
-      delta = aiInput.affinityDelta;
+      delta = applyAiAffinityDelta(aiInput.affinityDelta);
       nextSceneId = scenes[aiInput.nextScene] ? aiInput.nextScene : choice.next;
       if (aiInput.status) {
         // reserved for future: could display custom stage status
@@ -388,20 +402,21 @@ async function applyTyped(text) {
     if (ai) {
       const nextSceneId = scenes[ai.nextScene] ? ai.nextScene : state.scene;
       const clean = stripSpeakerTag(ai.heroText);
-      const delta = Number(ai.affinityDelta) || 0;
+      const delta = applyAiAffinityDelta(ai.affinityDelta);
       await handleHeroReply(clean, nextSceneId, delta, true, AI_TYPING_DELAY);
       return;
     }
 
     // fallback to rule mode when AI unavailable
     const fallback = '답변이 지연돼서, 내가 기본 루틴으로 처리할게. 그래도 충분히 잘 와닿아.';
-    await handleHeroReply(fallback, state.scene, 1, true, AI_TYPING_DELAY);
+    await handleHeroReply(fallback, state.scene, 0, true, AI_TYPING_DELAY);
     return;
   }
 
   const inferred = inferChoiceFromText(sceneObj, msg);
   const chosen = inferred || { next: 'start', gain: 0 };
-  state.affinity = clamp(state.affinity + (chosen.gain || 0), 0, AFFINITY_MAX);
+  const inferredGain = applyAffinityGain(chosen.gain);
+  state.affinity = clamp(state.affinity + inferredGain, 0, AFFINITY_MAX);
 
   let base = sceneObj.nextHeroLine || scenes[chosen.next].text;
   const nextSceneId = scenes[chosen.next] ? chosen.next : 'start';
