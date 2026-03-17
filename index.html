@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>forjoeun Visual Novel</title>
+  <link rel="stylesheet" href="./style.css">
+  <meta name="description" content="forjoeun VN Prototype" />
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>forjoeun</h1>
+      <p>아이폰에서도 되는 미연시(비노골적 로맨스/우정 모드)</p>
+    </header>
+
+    <section id="story-area" aria-live="polite">
+      <div id="character" class="fade"></div>
+      <p id="text" class="fade"></p>
+    </section>
+
+    <section id="choices" class="choices"></section>
+
+    <section id="hud">
+      <button id="saveBtn" class="ghost">세이브</button>
+      <button id="loadBtn" class="ghost">불러오기</button>
+      <button id="resetBtn" class="ghost">처음부터</button>
+    </section>
+
+    <footer>
+      <small>made by 오픈클로우 메구밍</small>
+    </footer>
+  </main>
+  <script src="./script.js"></script>
+</body>
+</html>
