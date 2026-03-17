@@ -116,7 +116,7 @@ const state = {
   affinity: 0,
   history: [],
   profileClicks: 0,
-  aiMode: false,
+  aiMode: true,
   busy: false,
 };
 
@@ -259,12 +259,15 @@ async function callAI(payload) {
   if (!res.ok) return null;
   const data = await res.json();
   if (!data || typeof data !== 'object') return null;
-  if (!data.heroText || !data.nextScene) return null;
+
+  const heroText = (data.heroText || '').toString().trim();
+  const nextScene = (data.nextScene || 'start').toString().trim();
+  if (!heroText) return null;
 
   return {
-    heroText: String(data.heroText),
+    heroText,
     affinityDelta: Number(data.affinityDelta) || 0,
-    nextScene: data.nextScene,
+    nextScene: scenes[nextScene] ? nextScene : 'start',
     status: data.status || null,
   };
 }
@@ -394,7 +397,7 @@ async function applyTyped(text) {
       return;
     }
 
-    const fallback = '답변이 지연돼서, 기본 루틴으로 처리할게. 천천히 가자.';
+    const fallback = '답변이 지연돼서, 지금은 짧게 확인 멘트만 보낼게. 천천히 가자.';
     await handleHeroReply(fallback, state.scene, 0, true, AI_TYPING_DELAY);
     return;
   }
@@ -417,6 +420,7 @@ function doLogin() {
   }
 
   state.user = user;
+  state.aiMode = true;
   state.scene = 'start';
   state.affinity = 0;
   state.history = [];
@@ -482,12 +486,12 @@ el.profileBtn.addEventListener('click', () => {
 
 el.heartBtn?.addEventListener('click', () => {
   const want = prompt('AI 모드(채팅형)로 전환할까요? (yes 입력 시 ON, 아니면 OFF)');
-  if (want && want.toLowerCase() === 'yes') {
-    state.aiMode = true;
-    alert('AI 모드 ON. /api/reply 브리지 연결이 필요해요.');
-  } else if (want) {
+  if (want && want.toLowerCase() === 'no') {
     state.aiMode = false;
     alert('AI 모드 OFF. 규칙 기반으로 진행할게.');
+  } else if (want) {
+    state.aiMode = true;
+    alert('AI 모드 ON. /api/reply 브리지 연결이 필요해요.');
   }
   renderStatus();
   saveState(false);
